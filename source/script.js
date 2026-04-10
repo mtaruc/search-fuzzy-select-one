@@ -13,12 +13,72 @@ function isRTL (s) {
   return rtlDirCheck.test(s)
 }
 
-// Add filtering of response options
-input.addEventListener('keyup', function (e) {
-  var query = $.trim($('#filter-text').val()).toLowerCase()
+// Add filtering of response options (Fuse.js fuzzy search — https://github.com/krisk/Fuse )
+var choiceFuse = null
+var fuseChoiceRows = []
+var fuseLoadPromise = null
+
+function ensureChoiceFuse (done) {
+  if (choiceFuse) {
+    done()
+    return
+  }
+  if (!fuseLoadPromise) {
+    fuseLoadPromise = import('./fuse.min.mjs').then(function (mod) {
+      fuseChoiceRows = []
+      $('div.radio .search').each(function () {
+        var $row = $(this).closest('div.radio')
+        fuseChoiceRows.push({
+          text: $(this).text().replace(/\s+/g, ' ').trim(),
+          $row: $row
+        })
+      })
+      var Fuse = mod.default
+      // Fuse options — tune strictness: https://fusejs.io/api/options.html
+      // - threshold: 0 = exact, 1 = match anything; default 0.6 is loose. Lower = stricter.
+      // - useTokenSearch: each word matched alone pulls in many false positives (e.g. "milk").
+      // - distance: how far a match may sit from expected index; lower = stricter.
+      choiceFuse = new Fuse(fuseChoiceRows, {
+        keys: ['text'],
+        useTokenSearch: false,
+        threshold: 0.35,
+        distance: 64,
+        minMatchCharLength: 2,
+        ignoreLocation: false
+      })
+    }).catch(function (err) {
+      console.error('Fuse.js failed to load', err)
+    })
+  }
+  fuseLoadPromise.then(done)
+}
+
+function filterChoicesSubstring (query) {
+  var q = query.toLowerCase()
   $('div.radio .search').each(function () {
     var $this = $(this)
-    if ($this.text().toLowerCase().indexOf(query) === -1) { $this.closest('div.radio').fadeOut() } else $this.closest('div.radio').fadeIn()
+    if ($this.text().toLowerCase().indexOf(q) === -1) { $this.closest('div.radio').hide() } else $this.closest('div.radio').show()
+  })
+}
+
+input.addEventListener('keyup', function (e) {
+  var query = $.trim($('#filter-text').val())
+  ensureChoiceFuse(function () {
+    if (!choiceFuse || !fuseChoiceRows.length) {
+      filterChoicesSubstring(query)
+      return
+    }
+    if (!query) {
+      for (var i = 0; i < fuseChoiceRows.length; i++) fuseChoiceRows[i].$row.show()
+      return
+    }
+    var results = choiceFuse.search(query)
+    var show = {}
+    for (var r = 0; r < results.length; r++) show[results[r].refIndex] = true
+    for (var j = 0; j < fuseChoiceRows.length; j++) {
+      if (show[j]) fuseChoiceRows[j].$row.show()
+      else fuseChoiceRows[j].$row.hide()
+    }
   })
 })
 
