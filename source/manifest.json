@@ -4,7 +4,7 @@
 	"version": "1.0.9",
 	"supportedFieldTypes": ["select_one"],
 	"externalCss": ["select2.min.css"],
-	"externalJs": ["jquery-3.5.1.min.js","select2.min.js"],
+	"externalJs": ["jquery-3.5.1.min.js","select2.min.js","fuse.min.mjs"],
 	"hideDefaultRequiredMessage": false,
 	"hideDefaultConstraintMessage": false
 }
