@@ -40,7 +40,7 @@ function ensureChoiceFuse (done) {
       // - distance: how far a match may sit from expected index; lower = stricter.
       choiceFuse = new Fuse(fuseChoiceRows, {
         keys: ['text'],
-        useTokenSearch: false,
+        useTokenSearch: true,
         threshold: 0.35,
         distance: 64,
         minMatchCharLength: 2,
