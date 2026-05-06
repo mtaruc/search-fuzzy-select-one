@@ -41,7 +41,7 @@ function ensureChoiceFuse (done) {
       choiceFuse = new Fuse(fuseChoiceRows, {
         keys: ['text'],
         useTokenSearch: true,
-        threshold: 0.35,
+        threshold: 0.2,
         distance: 64,
         minMatchCharLength: 2,
         ignoreLocation: false
