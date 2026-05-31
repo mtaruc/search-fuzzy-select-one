@@ -18,13 +18,29 @@ var choiceFuse = null
 var fuseChoiceRows = []
 var fuseLoadPromise = null
 
+var threshold = getPluginParameter('threshold')
+var distance = getPluginParameter('distance')
+var minMatchCharLength = getPluginParameter('minMatchCharLength')
+var ignoreLocation = getPluginParameter('ignoreLocation')
+
 function ensureChoiceFuse (done) {
   if (choiceFuse) {
     done()
     return
   }
   if (!fuseLoadPromise) {
-    fuseLoadPromise = import('./fuse.min.mjs').then(function (mod) {
+    fuseLoadPromise = Promise.all([
+      import('./fuse.min.mjs'),
+      import('./fuse-default-options.mjs')
+    ]).then(function (modules) {
+      var Fuse = modules[0].default
+      var fuseOpts = {
+        threshold: threshold || modules[1].FUSE_THRESHOLD,
+        distance: distance || modules[1].FUSE_DISTANCE,
+        minMatchCharLength: minMatchCharLength || modules[1].FUSE_MIN_MATCH_CHAR_LENGTH,
+        ignoreLocation: ignoreLocation || modules[1].FUSE_IGNORE_LOCATION
+      }
+      console.log(fuseOpts)
       fuseChoiceRows = []
       $('div.radio .search').each(function () {
         var $row = $(this).closest('div.radio')
@@ -33,19 +49,14 @@ function ensureChoiceFuse (done) {
           $row: $row
         })
       })
-      var Fuse = mod.default
-      // Fuse options — tune strictness: https://fusejs.io/api/options.html
+      // Fuse options — tune strictness in fuse-options.mjs: https://fusejs.io/api/options.html
       // - threshold: 0 = exact, 1 = match anything; default 0.6 is loose. Lower = stricter.
       // - useTokenSearch: each word matched alone pulls in many false positives (e.g. "milk").
       // - distance: how far a match may sit from expected index; lower = stricter.
-      choiceFuse = new Fuse(fuseChoiceRows, {
+      choiceFuse = new Fuse(fuseChoiceRows, Object.assign({
         keys: ['text'],
-        useTokenSearch: true,
-        threshold: 0.2,
-        distance: 64,
-        minMatchCharLength: 2,
-        ignoreLocation: false
-      })
+        useTokenSearch: true
+      }, fuseOpts))
     }).catch(function (err) {
       console.error('Fuse.js failed to load', err)
     })
