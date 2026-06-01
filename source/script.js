@@ -18,6 +18,13 @@ var choiceFuse = null
 var fuseChoiceRows = []
 var fuseLoadPromise = null
 
+// Default Fuse.js search tuning — https://fusejs.io/api/options.html
+var defaultThreshold = 0.2
+var defaultDistance = 64
+var defaultMinMatchCharLength = 2
+var defaultIgnoreLocation = false
+
+// Get Fuse.js search tuning from plugin parameters
 var threshold = getPluginParameter('threshold')
 var distance = getPluginParameter('distance')
 var minMatchCharLength = getPluginParameter('minMatchCharLength')
@@ -29,16 +36,13 @@ function ensureChoiceFuse (done) {
     return
   }
   if (!fuseLoadPromise) {
-    fuseLoadPromise = Promise.all([
-      import('./fuse.min.mjs'),
-      import('./fuse-default-options.mjs')
-    ]).then(function (modules) {
-      var Fuse = modules[0].default
+    fuseLoadPromise = import('./fuse.min.mjs').then(function (mod) {
+      var Fuse = mod.default
       var fuseOpts = {
-        threshold: threshold || modules[1].FUSE_THRESHOLD,
-        distance: distance || modules[1].FUSE_DISTANCE,
-        minMatchCharLength: minMatchCharLength || modules[1].FUSE_MIN_MATCH_CHAR_LENGTH,
-        ignoreLocation: ignoreLocation || modules[1].FUSE_IGNORE_LOCATION
+        threshold: threshold || defaultThreshold,
+        distance: distance || defaultDistance,
+        minMatchCharLength: minMatchCharLength || defaultMinMatchCharLength,
+        ignoreLocation: ignoreLocation || defaultIgnoreLocation
       }
       console.log(fuseOpts)
       fuseChoiceRows = []
