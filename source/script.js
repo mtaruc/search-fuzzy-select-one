@@ -18,6 +18,18 @@ var choiceFuse = null
 var fuseChoiceRows = []
 var fuseLoadPromise = null
 
+// Default Fuse.js search tuning — https://fusejs.io/api/options.html
+var defaultThreshold = 0.2
+var defaultDistance = 64
+var defaultMinMatchCharLength = 2
+var defaultIgnoreLocation = false
+
+// Get Fuse.js search tuning from plugin parameters
+var threshold = getPluginParameter('threshold')
+var distance = getPluginParameter('distance')
+var minMatchCharLength = getPluginParameter('minMatchCharLength')
+var ignoreLocation = getPluginParameter('ignoreLocation')
+
 function ensureChoiceFuse (done) {
   if (choiceFuse) {
     done()
@@ -25,6 +37,14 @@ function ensureChoiceFuse (done) {
   }
   if (!fuseLoadPromise) {
     fuseLoadPromise = import('./fuse.min.mjs').then(function (mod) {
+      var Fuse = mod.default
+      var fuseOpts = {
+        threshold: threshold || defaultThreshold,
+        distance: distance || defaultDistance,
+        minMatchCharLength: minMatchCharLength || defaultMinMatchCharLength,
+        ignoreLocation: ignoreLocation || defaultIgnoreLocation
+      }
+      console.log(fuseOpts)
       fuseChoiceRows = []
       $('div.radio .search').each(function () {
         var $row = $(this).closest('div.radio')
@@ -33,19 +53,14 @@ function ensureChoiceFuse (done) {
           $row: $row
         })
       })
-      var Fuse = mod.default
-      // Fuse options — tune strictness: https://fusejs.io/api/options.html
+      // Fuse options — tune strictness in fuse-options.mjs: https://fusejs.io/api/options.html
       // - threshold: 0 = exact, 1 = match anything; default 0.6 is loose. Lower = stricter.
       // - useTokenSearch: each word matched alone pulls in many false positives (e.g. "milk").
       // - distance: how far a match may sit from expected index; lower = stricter.
-      choiceFuse = new Fuse(fuseChoiceRows, {
+      choiceFuse = new Fuse(fuseChoiceRows, Object.assign({
         keys: ['text'],
-        useTokenSearch: true,
-        threshold: 0.2,
-        distance: 64,
-        minMatchCharLength: 2,
-        ignoreLocation: false
-      })
+        useTokenSearch: true
+      }, fuseOpts))
     }).catch(function (err) {
       console.error('Fuse.js failed to load', err)
     })
