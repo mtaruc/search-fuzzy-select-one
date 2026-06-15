@@ -43,7 +43,7 @@ var filterDebounceMs = 120
 var filterTimer = null
 
 // "Other" option — logic primarily from https://github.com/surveycto/specify-other
-var otherEnabled = getPluginParameter('other') === true
+var otherEnabled = getPluginParameter('otherEnabled') === true
 var otherValue = String(defaultOtherValue)
 var otherChoiceContainer = null
 var otherContainer = null
