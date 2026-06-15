@@ -114,14 +114,14 @@ function setupOtherOption () {
 
   if (placeholderText !== undefined) {
     if (placeholderText === '') {
-      otherInput.placeholder = ''
+      otherInput.placeholder = defaultOtherTextPlaceholder
     } else {
-      otherInput.placeholder = placeholderText + (requireOther ? '' : ' (optional)')
+      otherInput.placeholder = otherTextPlaceholder + (requireOther ? '' : ' (optional)')
     }
   } else if (fieldProperties.QUESTION_PLACEHOLDER_LABEL) {
-    otherInput.placeholder = fieldProperties.QUESTION_PLACEHOLDER_LABEL + (requireOther ? '' : ' (optional)')
+    otherInput.placeholder = otherLabel + (requireOther ? '' : ' (optional)')
   } else {
-    otherInput.placeholder = 'Enter other response here' + (requireOther ? '' : ' (optional)') + '...'
+    otherInput.placeholder = defaultOtherTextPlaceholder + (requireOther ? '' : ' (optional)') + '...'
   }
 
   otherInput.setAttribute('dir', 'auto')
@@ -168,13 +168,6 @@ function otherSelected () {
     otherContainer.style.display = 'inline'
     otherInput.focus()
     metadata = getMetaData()
-    if (requireOther && inputValue === '') {
-      setAnswer('')
-      otherInput.classList.add('blinking')
-    } else {
-      setAnswer(String(selectedChoices))
-      otherInput.classList.remove('blinking')
-    }
     return true
   }
   return false
@@ -351,7 +344,6 @@ function clearAnswer () {
       otherContainer.style.display = 'none'
       otherInput.value = ''
       inputValue = ''
-      otherInput.classList.remove('blinking')
     }
   }
   if (otherEnabled) {
