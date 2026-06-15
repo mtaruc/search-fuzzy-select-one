@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Field plugin — local dev (FNDDS CSV)</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/css/select2.min.css">
+  <link rel="stylesheet" href="style.css">
+  <!--
+    FNDDS dev page: loads extras/csv/fndds23_master_JOC.csv and builds choices from Main_food_description.
+
+    Serve the repository root (not only source/), then open:
+      http://localhost:8080/source/dev.html
+
+    Example:
+      cd <repo-root>
+      npx --yes serve . -l 8080
+
+    Duplicate Main_food_description rows are collapsed; the saved value is the first Food_code for that text.
+
+    Toggle appearance in fieldProperties below: '' (default + search), 'quick', 'minimal', 'likert', or 'likert likert-min'.
+  -->
+</head>
+<body class="web-collect">
+
+  <div class="label default-question-text-size" dir="auto">(placeholder — script fills from fieldProperties.LABEL)</div>
+  <div class="hint default-hint-text-size" dir="auto">(placeholder — script fills from fieldProperties.HINT)</div>
+
+  <input type="text" id="filter-text" autocomplete="off" class="search-box default-answer-text-size" placeholder="Fuzzy filter by food description…">
+
+  <form class="choices-container" id="radio-buttons-container" dir="auto">
+    <p id="dev-csv-status" class="default-hint-text-size">Loading FNDDS choices from CSV…</p>
+  </form>
+
+  <div id="select-container">
+    <select class="choices-container default-answer-text-size" id="select-dropdown-container">
+      <option value="">Select one answer</option>
+    </select>
+  </div>
+
+  <div class="likert-choices-container" id="likert-container"></div>
+
+  <div class="hidden-text"><p></p></div>
+
+  <svg class="symbol" aria-hidden="true">
+    <symbol id="quick-appearance-icon" viewBox="0 0 512 512">
+      <g><path d="M497 273L329 441c-15 15-41 4.5-41-17v-96H152c-13.3 0-24-10.7-24-24v-96c0-13.3 10.7-24 24-24h136V88c0-21.4 25.9-32 41-17l168 168c9.3 9.4 9.3 24.6 0 34zM192 436v-40c0-6.6-5.4-12-12-12H96c-17.7 0-32-14.3-32-32V160c0-17.7 14.3-32 32-32h84c6.6 0 12-5.4 12-12V76c0-6.6-5.4-12-12-12H96c-53 0-96 43-96 96v192c0 53 43 96 96 96h84c6.6 0 12-5.4 12-12z"/></g>
+    </symbol>
+  </svg>
+
+  <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/js/select2.min.js"></script>
+  <script>
+    window.setAnswer = function (v) { console.log('setAnswer', v); };
+    window.goToNextField = function () { console.log('goToNextField'); };
+    window.getMetaData = function () { return window._devMetaData || null; };
+    window.setMetaData = function (v) { window._devMetaData = v; console.log('setMetaData', v); };
+
+    window.fieldProperties = {
+      APPEARANCE: '',
+      LANGUAGE: null,
+      LABEL: 'FNDDS — pick a main food description (local dev)',
+      HINT: 'Choices load from extras/csv/fndds23_master_JOC.csv (Main_food_description). Typo-tolerant fuzzy filter uses Fuse.js.'
+    };
+  </script>
+  <script>
+    (function () {
+      function parseCsv (text) {
+        var rows = []
+        var i = 0
+        var row = []
+        var field = ''
+        var inQuotes = false
+        while (i < text.length) {
+          var c = text.charAt(i)
+          if (inQuotes) {
+            if (c === '"') {
+              if (text.charAt(i + 1) === '"') {
+                field += '"'
+                i += 2
+                continue
+              }
+              inQuotes = false
+              i++
+              continue
+            }
+            field += c
+            i++
+            continue
+          }
+          if (c === '"') {
+            inQuotes = true
+            i++
+            continue
+          }
+          if (c === ',') {
+            row.push(field)
+            field = ''
+            i++
+            continue
+          }
+          if (c === '\r') {
+            i++
+            continue
+          }
+          if (c === '\n') {
+            row.push(field)
+            rows.push(row)
+            row = []
+            field = ''
+            i++
+            continue
+          }
+          field += c
+          i++
+        }
+        if (field.length || row.length) {
+          row.push(field)
+          rows.push(row)
+        }
+        return rows
+      }
+
+      function loadScript (src, onload) {
+        var s = document.createElement('script')
+        s.src = src
+        s.onload = onload
+        s.onerror = function () {
+          var st = document.getElementById('dev-csv-status')
+          if (st) {
+            st.textContent = 'Failed to load ' + src + '. Check the path and server.'
+          }
+        }
+        document.body.appendChild(s)
+      }
+
+      var statusEl = document.getElementById('dev-csv-status')
+      var csvHref = new URL('../csv/fndds23_master_JOC.csv', window.location.href).href
+
+      fetch(csvHref)
+        .then(function (res) {
+          if (!res.ok) throw new Error(res.status + ' ' + res.statusText)
+          return res.text()
+        })
+        .then(function (text) {
+          var rows = parseCsv(text)
+          if (!rows.length) throw new Error('Empty CSV')
+
+          var header = rows[0]
+          var mainIdx = header.indexOf('Main_food_description')
+          var codeIdx = header.indexOf('Food_code')
+          if (mainIdx === -1 || codeIdx === -1) {
+            throw new Error('Missing Main_food_description or Food_code column')
+          }
+
+          var byDescription = new Map()
+          for (var r = 1; r < rows.length; r++) {
+            var cells = rows[r]
+            if (!cells || cells.length <= mainIdx) continue
+            var desc = (cells[mainIdx] || '').replace(/\s+/g, ' ').trim()
+            if (!desc) continue
+            if (!byDescription.has(desc)) {
+              byDescription.set(desc, String(cells[codeIdx] != null ? cells[codeIdx] : ''))
+            }
+          }
+
+          var pairs = []
+          byDescription.forEach(function (code, desc) {
+            pairs.push({ desc: desc, code: code })
+          })
+          pairs.sort(function (a, b) {
+            return a.desc.localeCompare(b.desc, undefined, { sensitivity: 'base' })
+          })
+
+          var form = document.getElementById('radio-buttons-container')
+          form.textContent = ''
+          var frag = document.createDocumentFragment()
+          for (var i = 0; i < pairs.length; i++) {
+            var p = pairs[i]
+            var wrap = document.createElement('div')
+            wrap.className = 'choice-container radio'
+            var inp = document.createElement('input')
+            inp.type = 'radio'
+            inp.name = 'opt'
+            inp.className = 'choice-input'
+            inp.id = 'c' + i
+            inp.value = p.code
+            var lab = document.createElement('label')
+            lab.className = 'choice-label search'
+            lab.htmlFor = 'c' + i
+            var inner = document.createElement('div')
+            inner.className = 'choice-label-text default-answer-text-size'
+            inner.textContent = p.desc
+            lab.appendChild(inner)
+            wrap.appendChild(inp)
+            wrap.appendChild(lab)
+            frag.appendChild(wrap)
+          }
+          form.appendChild(frag)
+
+          var sel = document.getElementById('select-dropdown-container')
+          sel.textContent = ''
+          var opt0 = document.createElement('option')
+          opt0.value = ''
+          opt0.textContent = 'Select one answer'
+          sel.appendChild(opt0)
+          for (var j = 0; j < pairs.length; j++) {
+            var o = document.createElement('option')
+            o.value = pairs[j].code
+            o.textContent = pairs[j].desc
+            sel.appendChild(o)
+          }
+
+          var likert = document.getElementById('likert-container')
+          likert.textContent = ''
+          var lfrag = document.createDocumentFragment()
+          for (var k = 0; k < pairs.length; k++) {
+            var pk = pairs[k]
+            var lc = document.createElement('div')
+            lc.className = 'likert-choice-container'
+            lc.innerHTML =
+              '<div class="likert-input-button-container">' +
+              '<div data-value="' + pk.code.replace(/"/g, '&quot;') + '" name="opt" class="likert-input-button" id="l' + k + '">' +
+              '<div class="likert-input-button-mark"></div></div></div>' +
+              '<label class="likert-choice-label" for="l' + k + '">' +
+              '<div class="likert-choice-label-text default-answer-text-size"></div></label>'
+            lc.querySelector('.likert-choice-label-text').textContent = pk.desc
+            lfrag.appendChild(lc)
+          }
+          likert.appendChild(lfrag)
+
+          loadScript('script.js', function () {
+            var hint = document.querySelector('.hint')
+            if (hint) {
+              hint.textContent += ' Loaded ' + pairs.length + ' unique main food descriptions.'
+            }
+          })
+        })
+        .catch(function (err) {
+          console.error(err)
+          if (statusEl) {
+            statusEl.textContent =
+              'Could not load CSV (' + err.message + '). Serve the repo root and open /source/dev.html — see comment in dev.html.'
+          }
+          loadScript('script.js')
+        })
+    })()
+  </script>
+</body>
+</html>
