@@ -24,11 +24,162 @@ var defaultDistance = 64
 var defaultMinMatchCharLength = 2
 var defaultIgnoreLocation = false
 
+// Default "Other" values
+var defaultOtherValue = -1
+var defaultOtherLabel = 'Other (specify)'
+var defaultOtherTextRequired = true
+var defaultOtherTextPlaceholder = 'Enter other response here'
+
 // Get Fuse.js search tuning from plugin parameters
 var threshold = getPluginParameter('threshold')
 var distance = getPluginParameter('distance')
 var minMatchCharLength = getPluginParameter('minMatchCharLength')
 var ignoreLocation = getPluginParameter('ignoreLocation')
+var otherLabel = getPluginParameter('otherLabel')
+var otherTextRequired = getPluginParameter('otherTextRequired')
+var otherTextPlaceholder = getPluginParameter('otherTextPlaceholder')
+
+var filterDebounceMs = 120
+var filterTimer = null
+
+// "Other" option — logic primarily from https://github.com/surveycto/specify-other
+var otherEnabled = getPluginParameter('other') === true
+var otherValue = String(defaultOtherValue)
+var otherChoiceContainer = null
+var otherContainer = null
+var otherInput = null
+var metadata = ''
+var selectedChoices = []
+var inputValue = ''
+var requireOther = true
+var placeholderText
+
+function createOtherChoice (label) {
+  var wrap = document.createElement('div')
+  wrap.className = 'choice-container radio other-choice'
+  wrap.setAttribute('data-other-choice', 'true')
+
+  var inp = document.createElement('input')
+  inp.type = 'radio'
+  inp.name = 'opt'
+  inp.className = 'choice-input'
+  inp.id = 'other-choice-input'
+  inp.value = otherValue
+
+  var lab = document.createElement('label')
+  lab.className = 'choice-label search'
+  lab.htmlFor = 'other-choice-input'
+
+  var inner = document.createElement('div')
+  inner.className = 'choice-label-text default-answer-text-size'
+  inner.textContent = label
+  lab.appendChild(inner)
+
+  wrap.appendChild(inp)
+  wrap.appendChild(lab)
+  return wrap
+}
+
+function setupOtherOption () {
+  metadata = getMetaData()
+  if (metadata == null) {
+    metadata = ''
+    selectedChoices = []
+    inputValue = ''
+  } else {
+    var metaParts = metadata.split('|')
+    selectedChoices = metaParts[0] ? metaParts[0].split(' ') : []
+    inputValue = metaParts[1] || ''
+  }
+
+  requireOther = getPluginParameter('otherTextRequired')
+  requireOther === 0 ? requireOther = false : requireOther = true
+
+  placeholderText = getPluginParameter('otherTextPlaceholder')
+
+  var otherLabel = getPluginParameter('otherLabel')
+  if (otherLabel === undefined || otherLabel === null || otherLabel === '') {
+    otherLabel = 'Other (specify)'
+  }
+
+  otherChoiceContainer = createOtherChoice(otherLabel)
+
+  otherContainer = document.createElement('div')
+  otherContainer.setAttribute('id', 'other-container')
+  otherContainer.style.display = 'none'
+
+  otherInput = document.createElement('textarea')
+  otherInput.setAttribute('type', 'text')
+  otherInput.setAttribute('id', 'other-input')
+
+  if (placeholderText !== undefined) {
+    if (placeholderText === '') {
+      otherInput.placeholder = ''
+    } else {
+      otherInput.placeholder = placeholderText + (requireOther ? '' : ' (optional)')
+    }
+  } else if (fieldProperties.QUESTION_PLACEHOLDER_LABEL) {
+    otherInput.placeholder = fieldProperties.QUESTION_PLACEHOLDER_LABEL + (requireOther ? '' : ' (optional)')
+  } else {
+    otherInput.placeholder = 'Enter other response here' + (requireOther ? '' : ' (optional)') + '...'
+  }
+
+  otherInput.setAttribute('dir', 'auto')
+  otherInput.setAttribute('autocomplete', 'off')
+  otherInput.appendChild(document.createTextNode(inputValue))
+  otherInput.classList.add('response', 'default-answer-text-size')
+  otherContainer.appendChild(otherInput)
+
+  radioButtonsContainer.insertBefore(otherChoiceContainer, radioButtonsContainer.firstChild)
+  radioButtonsContainer.insertBefore(otherContainer, otherChoiceContainer.nextSibling)
+
+  var hiddenDiv = document.querySelector('.hidden-text')
+  if (hiddenDiv) {
+    hiddenDiv.style.width = otherInput.offsetWidth + 'px'
+  }
+
+  var otherRadio = otherChoiceContainer.querySelector('input')
+  if (selectedChoices.indexOf(otherValue) !== -1) {
+    otherRadio.checked = true
+    otherChoiceContainer.classList.add('selected')
+  }
+
+  otherInput.addEventListener('input', resizeTextBox)
+  otherInput.oninput = function () {
+    inputValue = otherInput.value
+    setMetaData(String(selectedChoices) + '|' + inputValue)
+  }
+}
+
+function getSelectedChoices () {
+  var selected = []
+  var choiceContainers = document.querySelectorAll('.choice-container')
+  for (var c = 0; c < choiceContainers.length; c++) {
+    var choiceInput = choiceContainers[c].querySelector('input[name="opt"]')
+    if (choiceInput && choiceInput.checked === true) {
+      selected.push(choiceInput.value)
+    }
+  }
+  selectedChoices = selected.join(' ')
+}
+
+function otherSelected () {
+  if (String(selectedChoices).split(' ').indexOf(otherValue) !== -1) {
+    otherContainer.style.display = 'inline'
+    otherInput.focus()
+    metadata = getMetaData()
+    if (requireOther && inputValue === '') {
+      setAnswer('')
+      otherInput.classList.add('blinking')
+    } else {
+      setAnswer(String(selectedChoices))
+      otherInput.classList.remove('blinking')
+    }
+    return true
+  }
+  return false
+}
+
 
 function ensureChoiceFuse (done) {
   if (choiceFuse) {
@@ -68,34 +219,10 @@ function ensureChoiceFuse (done) {
   fuseLoadPromise.then(done)
 }
 
-function filterChoicesSubstring (query) {
-  var q = query.toLowerCase()
-  $('div.radio .search').each(function () {
-    var $this = $(this)
-    if ($this.text().toLowerCase().indexOf(q) === -1) { $this.closest('div.radio').hide() } else $this.closest('div.radio').show()
-  })
-}
 
-input.addEventListener('keyup', function (e) {
-  var query = $.trim($('#filter-text').val())
-  ensureChoiceFuse(function () {
-    if (!choiceFuse || !fuseChoiceRows.length) {
-      filterChoicesSubstring(query)
-      return
-    }
-    if (!query) {
-      for (var i = 0; i < fuseChoiceRows.length; i++) fuseChoiceRows[i].$row.show()
-      return
-    }
-    var results = choiceFuse.search(query)
-    var show = {}
-    for (var r = 0; r < results.length; r++) show[results[r].refIndex] = true
-    for (var j = 0; j < fuseChoiceRows.length; j++) {
-      if (show[j]) fuseChoiceRows[j].$row.show()
-      else fuseChoiceRows[j].$row.hide()
-    }
-  })
-})
+if (otherEnabled) {
+  setupOtherOption()
+}
 
 // Prepare the current webview, making adjustments for any appearance options
 
@@ -169,19 +296,37 @@ function clearAnswer () {
       selectedOption.checked = false
       selectedOption.parentElement.classList.remove('selected')
     }
+    if (otherEnabled && otherContainer) {
+      otherContainer.style.display = 'none'
+      otherInput.value = ''
+      inputValue = ''
+      otherInput.classList.remove('blinking')
+    }
+  }
+  if (otherEnabled) {
+    setAnswer('')
   }
 }
 
-// Save the user's response (update the current answer)
-
 function change () {
+  if (otherEnabled) {
+    selectedChoices = String(this.value)
+    if (!otherSelected()) {
+      otherContainer.style.display = 'none'
+      setAnswer(this.value)
+      if (fieldProperties.APPEARANCE.includes('quick') === true) {
+        goToNextField()
+      }
+    }
+    setMetaData(String(selectedChoices) + '|' + inputValue)
+    return
+  }
   setAnswer(this.value)
-  // If the appearance is 'quick', then also progress to the next field
   if (fieldProperties.APPEARANCE.includes('quick') === true) {
     goToNextField()
   }
 }
-// minimal appearance
+
 if (fieldProperties.APPEARANCE.includes('minimal') === true) {
   selectDropDownContainer.onchange = change // when the select dropdown is changed, call the change() function (which will update the current value)
 }
@@ -199,24 +344,13 @@ else if (fieldProperties.APPEARANCE.includes('likert') === true) {
       change.apply({ value: this.getAttribute('data-value') }) // call the change() function and tell it which value was selected
     }
   }
-}
-// all other appearances
-else {
-  var buttons = document.querySelectorAll('input[name="opt"]')
-  for (var i = 0; i < buttons.length; i++) {
-    buttons[i].onchange = function () {
-      // remove 'selected' class from a previously selected option (if any)
-      var selectedOption = document.querySelector('.choice-container.selected')
-      if (selectedOption) {
-        selectedOption.classList.remove('selected')
-      }
-      this.parentElement.classList.add('selected') // add 'selected' class to the new selected option
-      change.apply(this) // call the change() function and tell it which value was selected
-    }
-  }
+
+if (otherEnabled) {
+  getSelectedChoices()
+  otherSelected()
+  resizeTextBox()
 }
 
-// If the field label or hint contain any HTML that isn't in the form definition, then the < and > characters will have been replaced by their HTML character entities, and the HTML won't render. We need to turn those HTML entities back to actual < and > characters so that the HTML renders properly. This will allow you to render HTML from field references in your field label or hint.
 function unEntity (str) {
   return str.replace(/&lt;/g, '<').replace(/&gt;/g, '>')
 }
