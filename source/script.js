@@ -25,8 +25,7 @@ var defaultMinMatchCharLength = 2
 var defaultIgnoreLocation = false
 
 // Default "Other" values
-var defaultOtherValue = -1
-var defaultOtherLabel = 'Other (specify)'
+var defaultOtherLabel = 'Other'
 var defaultOtherTextRequired = true
 var defaultOtherTextPlaceholder = 'Enter other response here'
 
@@ -35,6 +34,7 @@ var threshold = getPluginParameter('threshold')
 var distance = getPluginParameter('distance')
 var minMatchCharLength = getPluginParameter('minMatchCharLength')
 var ignoreLocation = getPluginParameter('ignoreLocation')
+var otherParam = getPluginParameter('other')
 var otherLabel = getPluginParameter('otherLabel')
 var otherTextRequired = getPluginParameter('otherTextRequired')
 var otherTextPlaceholder = getPluginParameter('otherTextPlaceholder')
@@ -43,8 +43,8 @@ var filterDebounceMs = 120
 var filterTimer = null
 
 // "Other" option — logic primarily from https://github.com/surveycto/specify-other
-var otherEnabled = getPluginParameter('otherEnabled') === true
-var otherValue = String(defaultOtherValue)
+var otherEnabled = otherParam !== undefined && otherParam !== null && String(otherParam).trim() !== ''
+var otherValue = otherEnabled ? String(otherParam) : ''
 var otherChoiceContainer = null
 var otherContainer = null
 var otherInput = null
@@ -53,6 +53,7 @@ var selectedChoices = []
 var inputValue = ''
 var requireOther = true
 var placeholderText
+var handlingChange = false
 
 function findOtherChoiceContainer () {
   var inputs = radioButtonsContainer.querySelectorAll('input[name="opt"]')
@@ -93,10 +94,14 @@ function setupOtherOption () {
 
   var otherLabel = getPluginParameter('otherLabel')
   if (otherLabel === undefined || otherLabel === null || otherLabel === '') {
-    otherLabel = 'Other (specify)'
+    otherLabel = defaultOtherLabel
   }
 
-  otherChoiceContainer = createOtherChoice(otherLabel)
+  otherChoiceContainer = findOtherChoiceContainer()
+  if (!otherChoiceContainer) {
+    return
+  }
+  otherChoiceContainer = prepareOtherChoice(otherChoiceContainer, otherLabel)
 
   otherContainer = document.createElement('div')
   otherContainer.setAttribute('id', 'other-container')
@@ -142,6 +147,15 @@ function setupOtherOption () {
   otherInput.oninput = function () {
     inputValue = otherInput.value
     setMetaData(String(selectedChoices) + '|' + inputValue)
+    if (requireOther) {
+      if (inputValue.length > 0) {
+        setAnswer(String(selectedChoices))
+        otherInput.classList.remove('blinking')
+      } else {
+        setAnswer('')
+        otherInput.classList.add('blinking')
+      }
+    }
   }
 }
 
@@ -157,11 +171,20 @@ function getSelectedChoices () {
   selectedChoices = selected.join(' ')
 }
 
-function otherSelected () {
+function otherSelected (skipFocus) {
   if (String(selectedChoices).split(' ').indexOf(otherValue) !== -1) {
     otherContainer.style.display = 'inline'
-    otherInput.focus()
+    if (!skipFocus) {
+      otherInput.focus()
+    }
     metadata = getMetaData()
+    if (requireOther && inputValue === '') {
+      setAnswer('')
+      otherInput.classList.add('blinking')
+    } else {
+      setAnswer(String(selectedChoices))
+      otherInput.classList.remove('blinking')
+    }
     return true
   }
   return false
@@ -196,6 +219,12 @@ function harvestChoicesFromDom () {
   }
 }
 
+function keepOtherChoiceVisible () {
+  if (otherChoiceContainer) {
+    otherChoiceContainer.hidden = false
+  }
+}
+
 function applyFilter (query) {
   query = String(query || '').trim()
 
@@ -203,6 +232,7 @@ function applyFilter (query) {
     for (var i = 0; i < fuseChoiceRows.length; i++) {
       fuseChoiceRows[i].el.hidden = false
     }
+    keepOtherChoiceVisible()
     return
   }
 
@@ -212,6 +242,7 @@ function applyFilter (query) {
       var row = fuseChoiceRows[j]
       row.el.hidden = row.text.toLowerCase().indexOf(q) === -1
     }
+    keepOtherChoiceVisible()
     return
   }
 
@@ -221,6 +252,7 @@ function applyFilter (query) {
   for (var n = 0; n < fuseChoiceRows.length; n++) {
     fuseChoiceRows[n].el.hidden = !show[n]
   }
+  keepOtherChoiceVisible()
 }
 
 function initSearchChoices () {
@@ -346,21 +378,27 @@ function clearAnswer () {
 }
 
 function change () {
-  if (otherEnabled) {
-    selectedChoices = String(this.value)
-    if (!otherSelected()) {
-      otherContainer.style.display = 'none'
-      setAnswer(this.value)
-      if (fieldProperties.APPEARANCE.includes('quick') === true) {
-        goToNextField()
+  if (handlingChange) return
+  handlingChange = true
+  try {
+    if (otherEnabled) {
+      selectedChoices = String(this.value)
+      if (!otherSelected()) {
+        otherContainer.style.display = 'none'
+        setAnswer(this.value)
+        if (fieldProperties.APPEARANCE.includes('quick') === true) {
+          goToNextField()
+        }
       }
+      setMetaData(String(selectedChoices) + '|' + inputValue)
+      return
     }
-    setMetaData(String(selectedChoices) + '|' + inputValue)
-    return
-  }
-  setAnswer(this.value)
-  if (fieldProperties.APPEARANCE.includes('quick') === true) {
-    goToNextField()
+    setAnswer(this.value)
+    if (fieldProperties.APPEARANCE.includes('quick') === true) {
+      goToNextField()
+    }
+  } finally {
+    handlingChange = false
   }
 }
 
@@ -396,9 +434,14 @@ if (!fieldProperties.APPEARANCE.includes('minimal') && !fieldProperties.APPEARAN
 }
 
 if (otherEnabled) {
-  getSelectedChoices()
-  otherSelected()
-  resizeTextBox()
+  handlingChange = true
+  try {
+    getSelectedChoices()
+    otherSelected(true)
+    resizeTextBox()
+  } finally {
+    handlingChange = false
+  }
 }
 
 function unEntity (str) {
