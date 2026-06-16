@@ -54,30 +54,24 @@ var inputValue = ''
 var requireOther = true
 var placeholderText
 
-function createOtherChoice (label) {
-  var wrap = document.createElement('div')
-  wrap.className = 'choice-container radio other-choice'
-  wrap.setAttribute('data-other-choice', 'true')
+function findOtherChoiceContainer () {
+  var inputs = radioButtonsContainer.querySelectorAll('input[name="opt"]')
+  for (var i = 0; i < inputs.length; i++) {
+    if (String(inputs[i].value) === otherValue) {
+      return inputs[i].closest('.choice-container')
+    }
+  }
+  return null
+}
 
-  var inp = document.createElement('input')
-  inp.type = 'radio'
-  inp.name = 'opt'
-  inp.className = 'choice-input'
-  inp.id = 'other-choice-input'
-  inp.value = otherValue
-
-  var lab = document.createElement('label')
-  lab.className = 'choice-label search'
-  lab.htmlFor = 'other-choice-input'
-
-  var inner = document.createElement('div')
-  inner.className = 'choice-label-text default-answer-text-size'
-  inner.textContent = label
-  lab.appendChild(inner)
-
-  wrap.appendChild(inp)
-  wrap.appendChild(lab)
-  return wrap
+function prepareOtherChoice (choiceEl, label) {
+  choiceEl.classList.add('other-choice')
+  choiceEl.setAttribute('data-other-choice', 'true')
+  var labelText = choiceEl.querySelector('.choice-label-text')
+  if (labelText && label) {
+    labelText.textContent = label
+  }
+  return choiceEl
 }
 
 function setupOtherOption () {
