@@ -9,26 +9,73 @@
 
 ## Description
 
-This field plug-in adds the ability to filter choice list options for a *select_one* field. Filter by entering search text into the search field. Also see the sibling field plug-in, [search-select_multiple](https://github.com/surveycto/search-select-multiple).
+This field plug-in adds fuzzy, typo-tolerant filtering of choice list options for a *select_one* field. Enter search text into the search box to narrow the list; matching uses [Fuse.js](https://www.fusejs.io/). You can optionally enable an inline “Other” text box when a designated choice is selected (behavior based on the [specify-other](https://github.com/surveycto/specify-other) field plug-in). Also see the sibling field plug-in, [search-select_multiple](https://github.com/surveycto/search-select-multiple).
 
 [![Download now](extras/download-button.png)](https://github.com/surveycto/search-select-one/raw/master/search-select-one.fieldplugin.zip)
 
 ## Features
-* Provides a text box for searching a list of options.
+* Provides a text box for fuzzy-searching a list of options (default and `quick` appearances).
+* Tunable Fuse.js search parameters for stricter or looser matching.
+* Optional “Other” choice with an inline text response on the same screen.
+* The “Other” choice stays visible while filtering, even when it does not match the search text.
 * Works with [preloaded choices](https://docs.surveycto.com/02-designing-forms/04-sample-forms/12.search-and-select.html).
 
 ### Requirements
 *Requires Android 6 or upwards to work on SurveyCTO Collect*.
 
-## Data Format
-This field plug-in supports the `select_one` field type.
-Values are stored normally as per this field type.
+## Data format
+
+This field plug-in supports the `select_one` field type. The saved field value is the selected choice value, as usual.
+
+When the `other` parameter is set and the enumerator selects that choice, the text they enter is stored in the field plug-in **metadata**, not in the main field value. To retrieve that text in your form or export, add a [*calculate*](https://docs.surveycto.com/02-designing-forms/01-core-concepts/03zb.field-types-calculate.html) field with this expression:
+
+```
+item-at('|', plug-in-metadata(${your_field_name}), 1)
+```
+
+The metadata keeps the text-box value even when the box is hidden (for example, if the enumerator selected “Other” and then chose a different option). You can add a [*relevance*](https://docs.surveycto.com/02-designing-forms/01-core-concepts/08.relevance.html) expression on the *calculate* field so it is only shown when the “Other” choice is selected—for example, if the “Other” choice has a value of `97`:
+
+```
+selected(${your_field_name}, '97')
+```
+
+To learn more about “other” responses in SurveyCTO, see [Creating an open response field after a multiple choice question that asks users to specify other](https://support.surveycto.com/hc/en-us/articles/219910787).
+
+> **Important:** If you use the `other` parameter, add a field that reads the metadata (as above), or the “Other” text will not be available in your data export.
 
 ## How to use
 
-### Getting Started
+### Getting started
 1. Download the [sample form](https://github.com/surveycto/search-select-one/raw/master/extras/sample-form/sample-form.zip) from this repo and upload it to your SurveyCTO server.
 1. Download the [search-select-one.fieldplugin.zip](https://github.com/surveycto/search-select-one/raw/master/search-select-one.fieldplugin.zip) file from this repo, and attach it to the sample form on your SurveyCTO server.
+
+### Parameters
+
+Set parameters in the field plug-in definition on your form (see [Using field plug-ins](https://docs.surveycto.com/02-designing-forms/03-advanced-topics/06.using-field-plug-ins.html)).
+
+#### Fuzzy search (Fuse.js)
+
+These parameters map to [Fuse.js search options](https://www.fusejs.io/api/options.html). If omitted, the defaults below are used.
+
+| Name | Default | Description |
+| --- | --- | --- |
+| `threshold` | `0.2` | Match strictness from `0.0` (exact) to `1.0` (match anything). Lower values return fewer, stricter results. |
+| `distance` | `64` | How far from the expected match location a result may be found (in characters). |
+| `minMatchCharLength` | `2` | Minimum number of characters that must match before a result is returned. |
+| `ignoreLocation` | `false` | When `true`, matches are not penalized based on where in the choice label the text appears. |
+
+The search box is shown for the default appearance and for `quick`. It is hidden for `minimal` and `likert` appearances (those use the standard dropdown or likert UI without fuzzy filter).
+
+#### “Other” text box
+
+Enable specify-other behavior by setting `other` to the **value** of an existing choice in your list (for example, a row in your choices CSV whose value is `97`). That choice must be present in the choice list; the plug-in does not add an “Other” option for you.
+
+| Name | Default | Description |
+| --- | --- | --- |
+| `other` | *(disabled)* | Choice **value** that shows the inline text box when selected. Omit or leave blank to disable “Other” behavior. |
+| `otherLabel` | `Other` | Label shown on the “Other” choice in the list (overrides the label from the choice list). |
+| `otherTextRequired` | `1` | When `1` (default), the enumerator must enter text before advancing if “Other” is selected. Set to `0` to allow a blank response; the placeholder will include “(optional)”. |
+| `otherTextPlaceholder` | *(see below)* | Placeholder text for the “Other” text box. Use an empty string (`''`) for the default English text “Enter other response here”. If omitted, the plug-in uses the question’s placeholder label, or “Enter other response here...”. The text “(optional)” is appended automatically when `otherTextRequired` is `0`. |
 
 ### Default SurveyCTO feature support
 
@@ -43,7 +90,9 @@ Values are stored normally as per this field type.
 | media:audio | Yes |
 | media:video | Yes |
 | `quick` appearance | Yes |
-| `minimal` appearance | Yes |
+| `minimal` appearance | Yes (no fuzzy search box) |
+| `likert` appearance | Yes (no fuzzy search box) |
+| `likert-min` appearance | Yes (no fuzzy search box) |
 
 ## More resources
 
