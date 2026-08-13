@@ -13,7 +13,7 @@ This field plug-in adds custom search and filtering behavior on choice list opti
 
 _NOTE: Sibling field plug-in, [search-select_multiple](https://github.com/surveycto/search-select-multiple), has **NOT** yet been implemented with this extended functionality._
 
-[![Download now](extras/download.png)](https://github.com/mtaruc/search-fuzzy-select-one/raw/master/search-fuzzy-select-one-1.2.1.fieldplugin.zip)
+[![Download now](extras/download.png)](https://github.com/mtaruc/search-fuzzy-select-one/raw/master/search-fuzzy-select-one-1.2.2.fieldplugin.zip)
 
 ## Features
 * Provides a text box for fuzzy-searching a list of options (default and `quick` appearances).
@@ -51,7 +51,7 @@ To learn more about “other” responses in SurveyCTO, see [Creating an open re
 ## How to use
 
 ### Getting started
-1. Download the [search-select-one.fieldplugin.zip](https://github.com/mtaruc/search-fuzzy-select-one/raw/master/search-fuzzy-select-one-1.2.1.fieldplugin.zip) file from this repo, and attach it to a form on your SurveyCTO server.
+1. Download the [search-select-one.fieldplugin.zip](https://github.com/mtaruc/search-fuzzy-select-one/raw/master/search-fuzzy-select-one-1.2.2.fieldplugin.zip) file from this repo, and attach it to a form on your SurveyCTO server.
 
 ### Parameters
 
