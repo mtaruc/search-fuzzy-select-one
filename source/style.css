@@ -305,7 +305,8 @@ div.hidden-text p {
     }
 }
 
-.choice-container[hidden] {
+.choice-container[hidden],
+.choice-container.choice-filtered-out {
     display: none !important;
 }
 

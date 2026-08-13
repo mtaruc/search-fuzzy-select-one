@@ -54,9 +54,44 @@ var otherInput = null
 var metadata = ''
 var selectedChoices = []
 var inputValue = ''
+var savedSearchQuery = ''
 var requireOther = true
 var placeholderText
 var handlingChange = false
+
+function selectedValueString () {
+  if (Array.isArray(selectedChoices)) {
+    return selectedChoices.filter(Boolean).join(' ')
+  }
+  return String(selectedChoices || '')
+}
+
+function writeMeta () {
+  var sel = selectedValueString()
+  var q = input ? String(input.value || '') : savedSearchQuery
+  setMetaData(sel + '|' + inputValue + '|' + q)
+}
+
+function readMeta () {
+  metadata = getMetaData()
+  if (metadata == null || metadata === '') {
+    metadata = ''
+    selectedChoices = []
+    inputValue = ''
+    savedSearchQuery = ''
+    var choices = fieldProperties.CHOICES || []
+    for (var i = 0; i < choices.length; i++) {
+      if (choices[i].CHOICE_SELECTED) {
+        selectedChoices.push(String(choices[i].CHOICE_VALUE))
+      }
+    }
+    return
+  }
+  var metaParts = String(metadata).split('|')
+  selectedChoices = metaParts[0] ? metaParts[0].split(' ') : []
+  inputValue = metaParts[1] || ''
+  savedSearchQuery = metaParts[2] || ''
+}
 
 function findOtherChoiceContainer () {
   var inputs = radioButtonsContainer.querySelectorAll('input[name="opt"]')
@@ -79,17 +114,6 @@ function prepareOtherChoice (choiceEl, label) {
 }
 
 function setupOtherOption () {
-  metadata = getMetaData()
-  if (metadata == null) {
-    metadata = ''
-    selectedChoices = []
-    inputValue = ''
-  } else {
-    var metaParts = metadata.split('|')
-    selectedChoices = metaParts[0] ? metaParts[0].split(' ') : []
-    inputValue = metaParts[1] || ''
-  }
-
   requireOther = getPluginParameter('otherTextRequired')
   requireOther === 0 ? requireOther = false : requireOther = true
 
@@ -149,10 +173,10 @@ function setupOtherOption () {
   otherInput.addEventListener('input', resizeTextBox)
   otherInput.oninput = function () {
     inputValue = otherInput.value
-    setMetaData(String(selectedChoices) + '|' + inputValue)
+    writeMeta()
     if (requireOther) {
       if (inputValue.length > 0) {
-        setAnswer(String(selectedChoices))
+        setAnswer(selectedValueString())
         otherInput.classList.remove('blinking')
       } else {
         setAnswer('')
@@ -175,7 +199,8 @@ function getSelectedChoices () {
 }
 
 function otherSelected (skipFocus) {
-  if (String(selectedChoices).split(' ').indexOf(otherValue) !== -1) {
+  if (!otherContainer || !otherInput) return false
+  if (selectedValueString().split(' ').indexOf(otherValue) !== -1) {
     otherContainer.style.display = 'inline'
     if (!skipFocus) {
       otherInput.focus()
@@ -185,7 +210,7 @@ function otherSelected (skipFocus) {
       setAnswer('')
       otherInput.classList.add('blinking')
     } else {
-      setAnswer(String(selectedChoices))
+      setAnswer(selectedValueString())
       otherInput.classList.remove('blinking')
     }
     return true
@@ -222,18 +247,28 @@ function harvestChoicesFromDom () {
   }
 }
 
+function setChoiceFiltered (el, filteredOut) {
+  if (!el) return
+  if (filteredOut) {
+    el.classList.add('choice-filtered-out')
+  } else {
+    el.classList.remove('choice-filtered-out')
+  }
+}
+
 function keepOtherChoiceVisible () {
   if (otherChoiceContainer) {
-    otherChoiceContainer.hidden = false
+    setChoiceFiltered(otherChoiceContainer, false)
   }
 }
 
 function applyFilter (query) {
   query = String(query || '').trim()
+  var selectedVal = selectedValueString().split(' ')[0]
 
   if (!query) {
     for (var i = 0; i < fuseChoiceRows.length; i++) {
-      fuseChoiceRows[i].el.hidden = false
+      setChoiceFiltered(fuseChoiceRows[i].el, false)
     }
     keepOtherChoiceVisible()
     return
@@ -243,7 +278,8 @@ function applyFilter (query) {
     var q = query.toLowerCase()
     for (var j = 0; j < fuseChoiceRows.length; j++) {
       var row = fuseChoiceRows[j]
-      row.el.hidden = row.text.toLowerCase().indexOf(q) === -1
+      var keep = row.text.toLowerCase().indexOf(q) !== -1 || String(row.value) === selectedVal
+      setChoiceFiltered(row.el, !keep)
     }
     keepOtherChoiceVisible()
     return
@@ -253,7 +289,8 @@ function applyFilter (query) {
   var show = {}
   for (var r = 0; r < results.length; r++) show[results[r].refIndex] = true
   for (var n = 0; n < fuseChoiceRows.length; n++) {
-    fuseChoiceRows[n].el.hidden = !show[n]
+    var keepMatch = !!show[n] || String(fuseChoiceRows[n].value) === selectedVal
+    setChoiceFiltered(fuseChoiceRows[n].el, !keepMatch)
   }
   keepOtherChoiceVisible()
 }
@@ -291,6 +328,8 @@ function ensureChoiceFuse (done) {
 }
 
 input.addEventListener('input', function () {
+  savedSearchQuery = input.value
+  writeMeta()
   var query = input.value.trim()
   clearTimeout(filterTimer)
   filterTimer = setTimeout(function () {
@@ -300,6 +339,7 @@ input.addEventListener('input', function () {
   }, filterDebounceMs)
 })
 
+readMeta()
 if (otherEnabled) {
   setupOtherOption()
 }
@@ -375,28 +415,33 @@ function clearAnswer () {
       inputValue = ''
     }
   }
-  if (otherEnabled) {
-    setAnswer('')
+  selectedChoices = []
+  if (input) {
+    input.value = ''
+    savedSearchQuery = ''
   }
+  writeMeta()
+  setAnswer('')
 }
 
 function change () {
   if (handlingChange) return
   handlingChange = true
   try {
+    selectedChoices = String(this.value)
     if (otherEnabled) {
-      selectedChoices = String(this.value)
       if (!otherSelected()) {
-        otherContainer.style.display = 'none'
+        if (otherContainer) otherContainer.style.display = 'none'
         setAnswer(this.value)
         if (fieldProperties.APPEARANCE.includes('quick') === true) {
           goToNextField()
         }
       }
-      setMetaData(String(selectedChoices) + '|' + inputValue)
+      writeMeta()
       return
     }
     setAnswer(this.value)
+    writeMeta()
     if (fieldProperties.APPEARANCE.includes('quick') === true) {
       goToNextField()
     }
@@ -433,6 +478,9 @@ if (fieldProperties.APPEARANCE.includes('minimal') === true) {
 }
 
 if (!fieldProperties.APPEARANCE.includes('minimal') && !fieldProperties.APPEARANCE.includes('likert')) {
+  if (savedSearchQuery) {
+    input.value = savedSearchQuery
+  }
   initSearchChoices()
 }
 

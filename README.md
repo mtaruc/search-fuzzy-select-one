@@ -20,7 +20,7 @@ _NOTE: Sibling field plug-in, [search-select_multiple](https://github.com/survey
 * Tunable Fuse.js search parameters for stricter or looser matching.
 * Optional “Other” choice with an inline text response on the same screen.
 * The “Other” choice stays visible while filtering, even when it does not match the search text.
-* Works with [preloaded choices](https://docs.surveycto.com/02-designing-forms/04-sample-forms/12.search-and-select.html).
+* Works with [preloaded choices](https://docs.surveycto.com/02-designing-forms/04-sample-forms/12.search-and-select.html). Use `search('your_csv')` with **one** argument so all rows load; this plug-in filters them. Do **not** add `'contains'` / `'matches'` and a second field (for example `${food_search_results}`). On Back, that filter often returns **zero** choices while the saved answer is still set, and SurveyCTO shows `Invalid choice value provided`.
 
 ### Requirements
 *Requires Android 6 or upwards to work on SurveyCTO Collect*.
