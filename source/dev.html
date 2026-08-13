@@ -229,11 +229,13 @@
           }
           likert.appendChild(lfrag)
 
-          loadScript('script.js', function () {
-            var hint = document.querySelector('.hint')
-            if (hint) {
-              hint.textContent += ' Loaded ' + pairs.length + ' unique main food descriptions.'
-            }
+          loadScript('fuse.min.js', function () {
+            loadScript('script.js', function () {
+              var hint = document.querySelector('.hint')
+              if (hint) {
+                hint.textContent += ' Loaded ' + pairs.length + ' unique main food descriptions.'
+              }
+            })
           })
         })
         .catch(function (err) {
@@ -242,7 +244,9 @@
             statusEl.textContent =
               'Could not load CSV (' + err.message + '). Serve the repo root and open /source/dev.html — see comment in dev.html.'
           }
-          loadScript('script.js')
+          loadScript('fuse.min.js', function () {
+            loadScript('script.js')
+          })
         })
     })()
   </script>
