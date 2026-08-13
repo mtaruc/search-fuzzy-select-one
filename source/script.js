@@ -280,7 +280,8 @@ function ensureChoiceFuse (done) {
   }
   choiceFuse = new FuseCtor(fuseChoiceRows, Object.assign({
     keys: ['text'],
-    useTokenSearch: true
+    useTokenSearch: true,
+    tokenMatch: 'all'
   }, fuseOpts))
   done()
 }
