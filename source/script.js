@@ -16,7 +16,6 @@ function isRTL (s) {
 // Add filtering of response options (Fuse.js fuzzy search — https://github.com/krisk/Fuse )
 var choiceFuse = null
 var fuseChoiceRows = []
-var fuseLoadPromise = null
 
 // Default Fuse.js search tuning — https://fusejs.io/api/options.html
 var defaultThreshold = 0.2
@@ -267,24 +266,23 @@ function ensureChoiceFuse (done) {
     done()
     return
   }
-  if (!fuseLoadPromise) {
-    fuseLoadPromise = import('./fuse.min.mjs').then(function (mod) {
-      var Fuse = mod.default
-      var fuseOpts = {
-        threshold: threshold || defaultThreshold,
-        distance: distance || defaultDistance,
-        minMatchCharLength: minMatchCharLength || defaultMinMatchCharLength,
-        ignoreLocation: ignoreLocation || defaultIgnoreLocation
-      }
-      choiceFuse = new Fuse(fuseChoiceRows, Object.assign({
-        keys: ['text'],
-        useTokenSearch: true
-      }, fuseOpts))
-    }).catch(function (err) {
-      console.error('Fuse.js failed to load', err)
-    })
+  var FuseCtor = typeof Fuse !== 'undefined' ? Fuse : null
+  if (!FuseCtor) {
+    console.error('Fuse.js failed to load')
+    done()
+    return
   }
-  fuseLoadPromise.then(done)
+  var fuseOpts = {
+    threshold: threshold || defaultThreshold,
+    distance: distance || defaultDistance,
+    minMatchCharLength: minMatchCharLength || defaultMinMatchCharLength,
+    ignoreLocation: ignoreLocation || defaultIgnoreLocation
+  }
+  choiceFuse = new FuseCtor(fuseChoiceRows, Object.assign({
+    keys: ['text'],
+    useTokenSearch: true
+  }, fuseOpts))
+  done()
 }
 
 input.addEventListener('input', function () {
