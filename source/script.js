@@ -22,6 +22,8 @@ var defaultThreshold = 0.2
 var defaultDistance = 64
 var defaultMinMatchCharLength = 2
 var defaultIgnoreLocation = false
+var defaultUseTokenSearch = true
+var defaultTokenMatch = 'all'
 
 // Default "Other" values
 var defaultOtherLabel = 'Other'
@@ -33,6 +35,8 @@ var threshold = getPluginParameter('threshold')
 var distance = getPluginParameter('distance')
 var minMatchCharLength = getPluginParameter('minMatchCharLength')
 var ignoreLocation = getPluginParameter('ignoreLocation')
+var useTokenSearch = getPluginParameter('useTokenSearch')
+var tokenMatch = getPluginParameter('tokenMatch')
 var otherParam = getPluginParameter('other')
 var otherLabel = getPluginParameter('otherLabel')
 var otherTextRequired = getPluginParameter('otherTextRequired')
@@ -276,12 +280,12 @@ function ensureChoiceFuse (done) {
     threshold: threshold || defaultThreshold,
     distance: distance || defaultDistance,
     minMatchCharLength: minMatchCharLength || defaultMinMatchCharLength,
-    ignoreLocation: ignoreLocation || defaultIgnoreLocation
+    ignoreLocation: ignoreLocation || defaultIgnoreLocation,
+    useTokenSearch: useTokenSearch || defaultUseTokenSearch,
+    tokenMatch: tokenMatch || defaultTokenMatch
   }
   choiceFuse = new FuseCtor(fuseChoiceRows, Object.assign({
     keys: ['text'],
-    useTokenSearch: true,
-    tokenMatch: 'all'
   }, fuseOpts))
   done()
 }
