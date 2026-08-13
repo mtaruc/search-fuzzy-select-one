@@ -1,4 +1,4 @@
-# Search Fuzzy Select One [1.2.1] - SurveyCTO Plugin
+# Search Fuzzy Select One [1.2.2] - SurveyCTO Plugin
 ![Default appearance for the 'search-fuzzy-select-one' field plug-in - search](extras/default-search.png)
 ![Default appearance for the 'search-fuzzy-select-one' field plug-in - results](extras/default-search-result.png)
 
